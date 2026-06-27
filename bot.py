@@ -10,7 +10,7 @@ CHANNEL_USERNAME = "@iq_2a1"
 
 bot = telebot.TeleBot(BOT_TOKEN)
 
-# 🌍 سيرفر وهمي لضمان بقاء البوت أونلاين 24/7
+# 🌍 سيرفر وهمي لضمان بقاء البوت أونلاين 24/7 دون توقف
 class DummyServer(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -64,17 +64,22 @@ def process_download(message):
         bot.reply_to(message, "❌ من فضلك أرسل رابطاً صحيحاً يبدأ بـ http أو https.")
         return
 
-    status = bot.reply_to(message, "⏳ جاري فحص الرابط وتخطي حماية يوتيوب للتحميل...")
+    status = bot.reply_to(message, "⏳ جاري فحص الرابط وتخطي حماية يوتيوب عبر بروتوكول الآيفون...")
 
-    # ⚙️ إعدادات سحرية جديدة: محاكاة هاتف أندرويد لتخطي حظر السيرفرات وتجاهل أخطاء الشهادات
+    # ⚙️ التعديل الجوهري: التنكر بالكامل كـ iPhone و Apple TV لتخطي حظر "Sign in to confirm you're not a bot"
     ydl_opts = {
         'format': 'best[height<=480][ext=mp4]/best', 
         'outtmpl': 'downloads/%(id)s.%(ext)s',
         'max_filesize': 48 * 1024 * 1024,
         'quiet': True,
-        'nocheckcertificate': True, # تخطي مشاكل شهادات الأمان
-        'geo_bypass': True, # تخطي الحظر الجغرافي
-        'extractor_args': {'youtube': {'player_client': ['android', 'web']}} # خدعة إقناع يوتيوب أننا هاتف أندرويد
+        'nocheckcertificate': True,
+        'geo_bypass': True,
+        'extractor_args': {
+            'youtube': {
+                'player_client': ['ios', 'tvhtml5'], # فرض استخدام مشغل الآيفون والتلفزيون الذكي الموثوقين
+                'skip': ['webpage', 'authcheck']
+            }
+        }
     }
 
     try:
@@ -94,8 +99,7 @@ def process_download(message):
 
     except Exception as e:
         err = str(e)
-        # الآن سيقوم البوت بطباعة الخطأ الفعلي القادم من يوتيوب لكي نعرف حله فوراً
-        error_text = f"❌ حدث خطأ من المصدر (يوتيوب). التفاصيل البرمجية:\n\n`{err[:200]}`"
+        error_text = f"❌ حدث خطأ أثناء التحميل. التفاصيل:\n\n`{err[:200]}`"
         bot.edit_message_text(error_text, chat_id=message.chat.id, message_id=status.message_id, parse_mode="Markdown")
         
         if 'filename' in locals() and os.path.exists(filename):
