@@ -33,12 +33,12 @@ def handle_message(message):
     url = message.text
     
     if any(domain in url for domain in ["youtube.com", "youtu.be", "tiktok.com", "instagram.com", "facebook.com"]):
-        status_msg = bot.reply_to(message, "🚀 جاري معالجة الرابط...")
+        status_msg = bot.reply_to(message, "🚀 جاري معالجة الرابط (بتقنية التخفي)...")
         
-        # التعديل الأهم: قمنا بإزالة سطر 'format' تماماً لتعمل المكتبة بحريتها القصوى
+        # التعديل الأهم: التنكر كجهاز أندرويد لتخطي حظر يوتيوب بدون كوكيز
         ydl_opts = {
             'outtmpl': 'downloads/%(id)s.%(ext)s',
-            'cookiefile': 'cookies.txt', 
+            'extractor_args': {'youtube': ['player_client=android']}, # سطر التخفي السحري
             'noplaylist': True,
             'quiet': True
         }
