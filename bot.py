@@ -1,11 +1,30 @@
 import os
 import telebot
 from yt_dlp import YoutubeDL
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
 # ⚠️ ضع توكن البوت الخاص بك هنا بين علامتي التنصيص
 BOT_TOKEN = "8499856454:AAHB49UPTI7Q4sF0OyMr-GhBPOIVk9aBRRo"
 
 bot = telebot.TeleBot(BOT_TOKEN)
+
+# 🌍 سيرفر وهمي ذكي لتخطي فحص المنافذ (Ports) الخاص بمنصة رندر المجانية لضمان التشغيل 24/7
+class DummyServer(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-type", "text/html")
+        self.end_headers()
+        self.wfile.write(b"<h1>Bot is running successfully 24/7!</h1>")
+
+def run_server():
+    port = int(os.environ.get("PORT", 8080))
+    server = HTTPServer(('0.0.0.0', port), DummyServer)
+    print(f"🌍 Dummy server started on port {port}")
+    server.serve_forever()
+
+# تشغيل السيرفر الوهمي في الخلفية فوراً ليرى رندر منفذاً مفتوحاً
+threading.Thread(target=run_server, daemon=True).start()
 
 # التأكد من وجود مجلد مؤقت للتحميلات
 if not os.path.exists('downloads'):
@@ -29,10 +48,8 @@ def process_download(message):
         bot.reply_to(message, "❌ عذراً، يجب أن ترسل رابطاً صحيحاً يبدأ بـ http أو https.")
         return
 
-    # رسالة مؤقتة تظهر للمستخدم أثناء المعالجة
     status = bot.reply_to(message, "⏳ جاري فحص الرابط وبدء التحميل من السيرفر...")
 
-    # إعدادات تحميل ذكية متوافقة مع سيرفر Render ومحددة بـ 45 ميجا لتفادي قيود تليجرام
     ydl_opts = {
         'format': 'best[ext=mp4]/best',
         'outtmpl': 'downloads/%(id)s.%(ext)s',
@@ -49,11 +66,9 @@ def process_download(message):
 
         bot.edit_message_text("🚀 اكتمل التحميل من المنصة! جاري رفع الفيديو إليك الآن...", chat_id=message.chat.id, message_id=status.message_id)
         
-        # إرسال الفيديو النهائي للمستخدم أو أي شخص يستخدم البوت
         with open(filename, 'rb') as video:
             bot.send_video(message.chat.id, video, caption=f"🎬 {title}\n\n✨ تم التحميل بنجاح عبر السيرفر المستمر.")
         
-        # حذف الملف فوراً من السيرفر لتوفير المساحة وضمان استمرار الخدمة مجاناً
         if os.path.exists(filename):
             os.remove(filename)
         bot.delete_message(chat_id=message.chat.id, message_id=status.message_id)
@@ -68,10 +83,8 @@ def process_download(message):
         if 'filename' in locals() and os.path.exists(filename):
             os.remove(filename)
 
-# تنظيف أي اتصالات قديمة أو معلقة فوراً عند بدء التشغيل لمنع خطأ 409 الشهير
 try:
     bot.remove_webhook()
-    print("🧹 تم تنظيف الاتصالات السابقة وجعل البوت جاهزاً بشكل نقي.")
 except:
     pass
 
