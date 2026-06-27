@@ -66,7 +66,7 @@ def process_download(message):
 
     # ⚙️ السر هنا: استخدام ملف الكوكيز لتخطي حظر يوتيوب نهائياً
     ydl_opts = {
-        'format': 'best[height<=480][ext=mp4]/best',
+        'format': 'best',
         'outtmpl': 'downloads/%(id)s.%(ext)s',
         'max_filesize': 48 * 1024 * 1024,
         'quiet': True,
