@@ -5,13 +5,13 @@ import socketserver
 import telebot
 import yt_dlp
 
-# --- سيرفر وهمي لمنع Render من إغلاق البوت ---
+# --- سيرفر وهمي ---
 class DummyHTTPServer(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
         self.send_header("Content-type", "text/html; charset=utf-8")
         self.end_headers()
-        self.wfile.write("البوت يعمل بنجاح ومباشرة بدون وسطاء!".encode('utf-8'))
+        self.wfile.write("البوت يعمل ومستعد للتحميل!".encode('utf-8'))
 
 def run_dummy_server():
     PORT = int(os.environ.get("PORT", 8080))
@@ -20,7 +20,7 @@ def run_dummy_server():
 
 threading.Thread(target=run_dummy_server, daemon=True).start()
 
-# --- إعدادات البوت وقناة الاشتراك الإجباري ---
+# --- إعدادات البوت وقناة الاشتراك ---
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "8499856454:AAHB49UPTI7Q4sF0OyMr-GhBPOIVk9aBRRo") 
 CHANNELS = ["@iq_2a1"]
 
@@ -45,7 +45,7 @@ def send_welcome(message):
         bot.reply_to(message, "⚠️ عذراً عزيزي، يجب عليك الاشتراك في القناة أولاً لتتمكن من استخدام البوت!", reply_markup=markup)
         return
         
-    bot.reply_to(message, "👋 أهلاً بك! لقد عدنا للنسخة الأساسية المستقرة. أرسل لي أي رابط!")
+    bot.reply_to(message, "👋 أهلاً بك! أرسل لي أي رابط وسأقوم بتحميله فوراً.")
 
 @bot.message_handler(func=lambda message: True)
 def handle_message(message):
@@ -59,14 +59,17 @@ def handle_message(message):
     url = message.text
     url_lower = url.lower()
     
-    if any(domain in url_lower for domain in ["youtube.com", "youtu.be", "tiktok.com", "instagram.com", "facebook.com", "fb.watch", "x.com", "twitter.com"]):
-        status_msg = bot.reply_to(message, "🚀 جاري التحميل المباشر الآن...")
+    if any(domain in url_lower for domain in ["youtube.com", "youtu.be", "tiktok.com", "instagram.com", "facebook.com", "x.com", "twitter.com"]):
+        status_msg = bot.reply_to(message, "🚀 جاري معالجة الرابط والتحميل...")
         
+        # إعدادات التحميل المحدثة لتخطي حظر انستغرام ويوتيوب
         ydl_opts = {
-            'format': 'b[ext=mp4]/b', 
+            'format': 'b[ext=mp4]/best', 
             'outtmpl': f'video_{message.chat.id}_%(id)s.%(ext)s',
             'quiet': True,
             'no_warnings': True,
+            'geo_bypass': True, # محاولة تخطي الحظر الجغرافي
+            'nocheckcertificate': True,
         }
         
         current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -80,7 +83,7 @@ def handle_message(message):
                 info = ydl.extract_info(url, download=True)
                 filename = ydl.prepare_filename(info)
                 
-                bot.edit_message_text("📥 اكتمل التحميل! جاري إرسال الفيديو...", message.chat.id, status_msg.message_id)
+                bot.edit_message_text("📥 اكتمل التحميل! جاري الإرسال...", message.chat.id, status_msg.message_id)
                 
                 with open(filename, 'rb') as video:
                     bot.send_video(message.chat.id, video, reply_to_message_id=message.message_id)
@@ -91,7 +94,7 @@ def handle_message(message):
                 
         except Exception as e:
             print(f"Error: {str(e)}")
-            bot.edit_message_text("❌ عذراً، المنصة تمنع التحميل حالياً (تأكد من تحديث الكوكيز).", message.chat.id, status_msg.message_id)
+            bot.edit_message_text("❌ عذراً، لم أتمكن من التحميل. قد يكون الفيديو خاصاً (Private)، أو أن المنصة قامت بتحديث نظام الحماية الخاص بها.", message.chat.id, status_msg.message_id)
     else:
         bot.reply_to(message, "⚠️ أرسل رابطاً صحيحاً من المنصات المعروفة.")
 
