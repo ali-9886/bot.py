@@ -5,14 +5,15 @@ import socketserver
 import telebot
 import yt_dlp
 import requests
+import re
 
-# --- سيرفر وهمي لمنع البوت من النوم ودعمه عبر UptimeRobot ---
+# --- سيرفر وهمي لمنع البوت من النوم ---
 class DummyHTTPServer(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
         self.send_header("Content-type", "text/html; charset=utf-8")
         self.end_headers()
-        self.wfile.write("البوت الهجين يعمل بنجاح لمختلف المنصات!".encode('utf-8'))
+        self.wfile.write("البوت يعمل بنظام تخطي حظر انستغرام المتقدم!".encode('utf-8'))
 
 def run_dummy_server():
     PORT = int(os.environ.get("PORT", 8080))
@@ -21,7 +22,7 @@ def run_dummy_server():
 
 threading.Thread(target=run_dummy_server, daemon=True).start()
 
-# --- إعدادات البوت وقناة الاشتراك الإجباري ---
+# --- إعدادات البوت والاشتراك الإجباري ---
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "8499856454:AAHB49UPTI7Q4sF0OyMr-GhBPOIVk9aBRRo") 
 CHANNELS = ["@iq_2a1"]
 
@@ -37,26 +38,24 @@ def check_subscription(user_id):
             return True
     return True
 
-# بوابة سحابية خاصة لتخطي حظر انستغرام وفيسبوك الشديد
-def download_instagram_cloud(url):
-    api_endpoints = [
-        "https://api.cobalt.tools/api/json",
-        "https://co.wuk.sh/api/json"
-    ]
-    headers = {
-        "Accept": "application/json",
-        "Content-Type": "application/json",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
-    }
-    for api in api_endpoints:
-        try:
-            response = requests.post(api, json={"url": url}, headers=headers, timeout=10)
-            if response.status_code == 200:
-                data = response.json()
-                if 'url' in data:
-                    return data['url']
-        except:
-            continue
+# دالة ذكية لتخطي حظر انستغرام عبر سيرفرات ddinstagram الوسيطة
+def get_instagram_video_url(url):
+    try:
+        # تنظيف الرابط وتحويله إلى السيرفر الوسيط غير المحظور
+        cleaned_url = url.replace("www.", "").replace("instagram.com", "ddinstagram.com")
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+        response = requests.get(cleaned_url, headers=headers, timeout=12)
+        if response.status_code == 200:
+            html = response.text
+            # البحث عن رابط الفيديو المباشر في الميتا تاغ الخاص بالصفحة
+            match = re.search(r'<meta\s+property=["\']og:video["\']\s+content=["\'](.*?)["\']', html)
+            if match:
+                video_url = match.group(1)
+                return video_url.replace("&amp;", "&")
+    except Exception as e:
+        print(f"Instagram Proxy Error: {e}")
     return None
 
 @bot.message_handler(commands=['start', 'help'])
@@ -68,7 +67,7 @@ def send_welcome(message):
         bot.reply_to(message, "⚠️ عذراً عزيزي، يجب عليك الاشتراك في القناة أولاً لتتمكن من استخدام البوت!", reply_markup=markup)
         return
         
-    bot.reply_to(message, "👋 أهلاً بك! تم حل مشكلة انستغرام وتثبيت تيك توك بنجاح. أرسل لي أي رابط الآن!")
+    bot.reply_to(message, "👋 أهلاً بك! تم حل مشكلة انستغرام كلياً وتثبيت تيك توك. أرسل لي أي رابط الآن.")
 
 @bot.message_handler(func=lambda message: True)
 def handle_message(message):
@@ -82,21 +81,21 @@ def handle_message(message):
     url = message.text
     url_lower = url.lower()
     
-    if any(domain in url_lower for domain in ["tiktok.com", "instagram.com", "facebook.com", "fb.watch", "youtu.be", "youtube.com"]):
-        status_msg = bot.reply_to(message, "🚀 جاري فحص الرابط والتحميل السريع...")
+    if any(domain in url_lower for domain in ["tiktok.com", "instagram.com", "facebook.com", "fb.watch"]):
+        status_msg = bot.reply_to(message, "🚀 جاري سحب مقطع الفيديو...")
         
-        # أولاً: معالجة خاصة وفورية لروابط انستغرام وفيسبوك لتخطي حظر السيرفر
-        if "instagram.com" in url_lower or "facebook.com" in url_lower or "fb.watch" in url_lower:
-            direct_url = download_instagram_cloud(url)
-            if direct_url:
+        # --- أولاً: معالجة خاصة وفورية لانستغرام لتخطي حظر السيرفر ---
+        if "instagram.com" in url_lower:
+            direct_video = get_instagram_video_url(url)
+            if direct_video:
                 try:
-                    bot.send_video(message.chat.id, direct_url, reply_to_message_id=message.message_id)
+                    bot.send_video(message.chat.id, direct_video, reply_to_message_id=message.message_id)
                     bot.delete_message(message.chat.id, status_msg.message_id)
                     return
-                except:
-                    pass
+                except Exception:
+                    pass # إذا فشل الإرسال المباشر ينتقل للطريقة الاحتياطية بالأسفل
         
-        # ثانياً: المعالجة العادية والمستقرة جداً لتيك توك وبقية المنصات
+        # --- ثانياً: معالجة تيك توك والمنصات الأخرى بالطريقة العادية والمستقرة ---
         ydl_opts = {
             'format': 'b[ext=mp4]/best', 
             'outtmpl': f'video_{message.chat.id}_%(id)s.%(ext)s',
@@ -117,9 +116,9 @@ def handle_message(message):
                 bot.delete_message(message.chat.id, status_msg.message_id)
                 
         except Exception as e:
-            bot.edit_message_text("❌ الحساب خاص أو الرابط غير مدعوم حالياً. تأكد أن الفيديو عام (Public).", message.chat.id, status_msg.message_id)
+            bot.edit_message_text("❌ عذراً، لا يمكن تحميل هذا المقطع حالياً. تأكد أن الحساب عام وليس خاصاً (Private).", message.chat.id, status_msg.message_id)
     else:
-        bot.reply_to(message, "⚠️ أرسل رابطاً صحيحاً من (تيك توك، انستغرام، فيسبوك).")
+        bot.reply_to(message, "⚠️ أرسل رابطاً صحيحاً من تيك توك أو انستغرام أو فيسبوك.")
 
 if __name__ == "__main__":
     bot.infinity_polling()
