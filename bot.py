@@ -5,13 +5,13 @@ import socketserver
 import telebot
 import yt_dlp
 
-# --- سيرفر وهمي ---
+# --- سيرفر وهمي لمنع البوت من النوم ---
 class DummyHTTPServer(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
         self.send_header("Content-type", "text/html; charset=utf-8")
         self.end_headers()
-        self.wfile.write("البوت يعمل ومستعد للتحميل!".encode('utf-8'))
+        self.wfile.write("البوت يعمل مع تقنية التخفي المتقدمة!".encode('utf-8'))
 
 def run_dummy_server():
     PORT = int(os.environ.get("PORT", 8080))
@@ -20,7 +20,7 @@ def run_dummy_server():
 
 threading.Thread(target=run_dummy_server, daemon=True).start()
 
-# --- إعدادات البوت وقناة الاشتراك ---
+# --- إعدادات البوت والاشتراك الإجباري ---
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "8499856454:AAHB49UPTI7Q4sF0OyMr-GhBPOIVk9aBRRo") 
 CHANNELS = ["@iq_2a1"]
 
@@ -45,7 +45,7 @@ def send_welcome(message):
         bot.reply_to(message, "⚠️ عذراً عزيزي، يجب عليك الاشتراك في القناة أولاً لتتمكن من استخدام البوت!", reply_markup=markup)
         return
         
-    bot.reply_to(message, "👋 أهلاً بك! أرسل لي أي رابط وسأقوم بتحميله فوراً.")
+    bot.reply_to(message, "👋 أهلاً بك! لقد تم تحديث نظام التحميل وتخطي الحظر. أرسل لي أي رابط الآن.")
 
 @bot.message_handler(func=lambda message: True)
 def handle_message(message):
@@ -59,17 +59,25 @@ def handle_message(message):
     url = message.text
     url_lower = url.lower()
     
-    if any(domain in url_lower for domain in ["youtube.com", "youtu.be", "tiktok.com", "instagram.com", "facebook.com", "x.com", "twitter.com"]):
-        status_msg = bot.reply_to(message, "🚀 جاري معالجة الرابط والتحميل...")
+    if any(domain in url_lower for domain in ["youtube.com", "youtu.be", "tiktok.com", "instagram.com", "facebook.com", "fb.watch", "x.com", "twitter.com"]):
+        status_msg = bot.reply_to(message, "🚀 جاري فك التشفير والتحميل (قد يستغرق الأمر لحظات)...")
         
-        # إعدادات التحميل المحدثة لتخطي حظر انستغرام ويوتيوب
+        # إعدادات متقدمة جداً للتخفي وخداع سيرفرات يوتيوب وانستغرام
         ydl_opts = {
             'format': 'b[ext=mp4]/best', 
             'outtmpl': f'video_{message.chat.id}_%(id)s.%(ext)s',
             'quiet': True,
             'no_warnings': True,
-            'geo_bypass': True, # محاولة تخطي الحظر الجغرافي
             'nocheckcertificate': True,
+            'geo_bypass': True,
+            'extractor_args': {
+                'youtube': ['player_client=android,ios,web'] # إيهام يوتيوب أن الطلب من هاتف
+            },
+            'http_headers': {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'en-us,en;q=0.5',
+            }
         }
         
         current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -94,7 +102,7 @@ def handle_message(message):
                 
         except Exception as e:
             print(f"Error: {str(e)}")
-            bot.edit_message_text("❌ عذراً، لم أتمكن من التحميل. قد يكون الفيديو خاصاً (Private)، أو أن المنصة قامت بتحديث نظام الحماية الخاص بها.", message.chat.id, status_msg.message_id)
+            bot.edit_message_text("❌ عذراً، حماية المنصة تمنع التحميل حالياً من هذا الرابط. جرب رابطاً آخر.", message.chat.id, status_msg.message_id)
     else:
         bot.reply_to(message, "⚠️ أرسل رابطاً صحيحاً من المنصات المعروفة.")
 
