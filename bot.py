@@ -3,15 +3,15 @@ import threading
 import http.server
 import socketserver
 import telebot
-import requests
+import yt_dlp
 
-# --- سيرفر وهمي لمنع البوت من النوم ---
+# --- سيرفر وهمي لمنع Render من إغلاق البوت ---
 class DummyHTTPServer(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
         self.send_header("Content-type", "text/html; charset=utf-8")
         self.end_headers()
-        self.wfile.write("البوت يعمل الآن بالنظام السحابي المتعدد!".encode('utf-8'))
+        self.wfile.write("البوت يعمل بنجاح ومباشرة بدون وسطاء!".encode('utf-8'))
 
 def run_dummy_server():
     PORT = int(os.environ.get("PORT", 8080))
@@ -20,7 +20,7 @@ def run_dummy_server():
 
 threading.Thread(target=run_dummy_server, daemon=True).start()
 
-# --- إعدادات البوت والاشتراك الإجباري ---
+# --- إعدادات البوت وقناة الاشتراك الإجباري ---
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "8499856454:AAHB49UPTI7Q4sF0OyMr-GhBPOIVk9aBRRo") 
 CHANNELS = ["@iq_2a1"]
 
@@ -45,34 +45,7 @@ def send_welcome(message):
         bot.reply_to(message, "⚠️ عذراً عزيزي، يجب عليك الاشتراك في القناة أولاً لتتمكن من استخدام البوت!", reply_markup=markup)
         return
         
-    bot.reply_to(message, "👋 أهلاً بك! لقد تم ربط البوت بـ 5 سيرفرات سحابية خارجية لتخطي الحظر. أرسل لي أي رابط!")
-
-# دالة ذكية للبحث في 5 سيرفرات مختلفة لتخطي الحظر
-def get_video_url(url):
-    apis = [
-        "https://co.wuk.sh/api/json",
-        "https://api.cobalt.tools/api/json",
-        "https://cobalt.qwyre.com/api/json",
-        "https://api.cobalt.tools/",
-        "https://co.wuk.sh/"
-    ]
-    headers = {
-        "Accept": "application/json",
-        "Content-Type": "application/json",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    }
-    payload = {"url": url}
-    
-    for api in apis:
-        try:
-            res = requests.post(api, json=payload, headers=headers, timeout=12)
-            if res.status_code == 200:
-                data = res.json()
-                if 'url' in data:
-                    return data['url']
-        except Exception:
-            continue # إذا فشل السيرفر، انتقل للذي يليه فوراً
-    return None
+    bot.reply_to(message, "👋 أهلاً بك! لقد عدنا للنسخة الأساسية المستقرة. أرسل لي أي رابط!")
 
 @bot.message_handler(func=lambda message: True)
 def handle_message(message):
@@ -87,19 +60,38 @@ def handle_message(message):
     url_lower = url.lower()
     
     if any(domain in url_lower for domain in ["youtube.com", "youtu.be", "tiktok.com", "instagram.com", "facebook.com", "fb.watch", "x.com", "twitter.com"]):
-        status_msg = bot.reply_to(message, "🚀 جاري البحث عن الفيديو في السيرفرات السحابية...")
+        status_msg = bot.reply_to(message, "🚀 جاري التحميل المباشر الآن...")
         
-        direct_url = get_video_url(url)
+        ydl_opts = {
+            'format': 'b[ext=mp4]/b', 
+            'outtmpl': f'video_{message.chat.id}_%(id)s.%(ext)s',
+            'quiet': True,
+            'no_warnings': True,
+        }
         
-        if direct_url:
-            try:
-                bot.edit_message_text("📥 تم العثور على الفيديو! جاري الإرسال لتيليجرام...", message.chat.id, status_msg.message_id)
-                bot.send_video(message.chat.id, direct_url, reply_to_message_id=message.message_id)
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        cookies_path = os.path.join(current_dir, 'cookies.txt')
+        
+        if os.path.exists(cookies_path):
+            ydl_opts['cookiefile'] = cookies_path
+            
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=True)
+                filename = ydl.prepare_filename(info)
+                
+                bot.edit_message_text("📥 اكتمل التحميل! جاري إرسال الفيديو...", message.chat.id, status_msg.message_id)
+                
+                with open(filename, 'rb') as video:
+                    bot.send_video(message.chat.id, video, reply_to_message_id=message.message_id)
+                    
+                if os.path.exists(filename):
+                    os.remove(filename)
                 bot.delete_message(message.chat.id, status_msg.message_id)
-            except Exception as e:
-                bot.edit_message_text("❌ عذراً، حجم الفيديو كبير جداً أو أن تيليجرام يرفض استقباله.", message.chat.id, status_msg.message_id)
-        else:
-            bot.edit_message_text("❌ عذراً، جميع السيرفرات محظورة حالياً من هذه المنصة (يوتيوب/انستغرام حدثت حمايتها للتو). جرب مقطعاً آخر.", message.chat.id, status_msg.message_id)
+                
+        except Exception as e:
+            print(f"Error: {str(e)}")
+            bot.edit_message_text("❌ عذراً، المنصة تمنع التحميل حالياً (تأكد من تحديث الكوكيز).", message.chat.id, status_msg.message_id)
     else:
         bot.reply_to(message, "⚠️ أرسل رابطاً صحيحاً من المنصات المعروفة.")
 
