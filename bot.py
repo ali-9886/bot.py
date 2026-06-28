@@ -5,15 +5,14 @@ import socketserver
 import telebot
 import yt_dlp
 import requests
-import re
 
-# --- سيرفر وهمي لمنع البوت من النوم ولدعمه عبر UptimeRobot ---
+# --- سيرفر وهمي مدمج للحفاظ على استمرارية البوت عبر UptimeRobot ---
 class DummyHTTPServer(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
         self.send_header("Content-type", "text/html; charset=utf-8")
         self.end_headers()
-        self.wfile.write("البوت المستقر يعمل بنظام تخطي الحظر المتقدم!".encode('utf-8'))
+        self.wfile.write("البوت المطور يعمل بنظام محاكاة الأندرويد لكسر الحظر!".encode('utf-8'))
 
 def run_dummy_server():
     PORT = int(os.environ.get("PORT", 8080))
@@ -38,26 +37,53 @@ def check_subscription(user_id):
             return True
     return True
 
-# دالة كسر حظر انستغرام وسحب الفيديو المباشر بدون سيرفرات وسيطة معقدة
-def get_instagram_direct_url(url):
+# قائمة متطورة ومحدثة من السيرفرات السحابية البديلة لإنستغرام ويوتيوب
+def download_via_advanced_api(url, download_path):
+    api_instances = [
+        "https://co.wuk.sh/api/json",
+        "https://api.cobalt.tools/api/json",
+        "https://cobalt.moe/api/json",
+        "https://streamable.com/api/video", 
+        "https://api.sadby.me/api/json"
+    ]
+    payload = {
+        "url": url,
+        "videoQuality": "720",
+        "filenamePattern": "classic",
+        "audioFormat": "mp3",
+        "isAudioOnly": False
+    }
+    headers = {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36"
+    }
+    
+    video_url = None
+    for instance in api_instances:
+        try:
+            res = requests.post(instance, json=payload, headers=headers, timeout=8)
+            if res.status_code == 200:
+                data = res.json()
+                if 'url' in data:
+                    video_url = data['url']
+                    break
+        except:
+            continue
+            
+    if not video_url:
+        return False
+
     try:
-        # تحويل الرابط إلى السيرفر الوسيط المستقر لعرض البيانات النظيفة
-        proxy_url = url.replace("instagram.com", "ddinstagram.com").replace("www.", "")
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-        }
-        res = requests.get(proxy_url, headers=headers, timeout=10)
-        if res.status_code == 200:
-            # البحث عن رابط الفيديو الفعلي داخل الميتا تاغ لصفحة انستغرام المخفية
-            match = re.search(r'<meta\s+property=["\']og:video["\']\s+content=["\'](.*?)["\']', res.text)
-            if match:
-                return match.group(1).replace("&amp;", "&")
-            match2 = re.search(r'<meta\s+name=["\']twitter:player:stream["\']\s+content=["\'](.*?)["\']', res.text)
-            if match2:
-                return match2.group(1).replace("&amp;", "&")
+        video_res = requests.get(video_url, stream=True, timeout=45)
+        if video_res.status_code == 200:
+            with open(download_path, 'wb') as f:
+                for chunk in video_res.iter_content(chunk_size=1024*1024):
+                    if chunk: f.write(chunk)
+            return True
     except:
-        pass
-    return None
+        return False
+    return False
 
 @bot.message_handler(commands=['start', 'help'])
 def send_welcome(message):
@@ -67,7 +93,7 @@ def send_welcome(message):
         markup.add(btn)
         bot.reply_to(message, "⚠️ عذراً عزيزي، يجب عليك الاشتراك في القناة أولاً لتتمكن من استخدام البوت!", reply_markup=markup)
         return
-    bot.reply_to(message, "👋 أهلاً بك! تم تحديث نظام انستغرام إلى جدار الحماية الذكي. أرسل أي رابط الآن (تيك توك أو انستغرام).")
+    bot.reply_to(message, "🚀 أهلاً بك في النسخة المطورة! تم حل مشكلة حظر إنستغرام ويوتيوب وتأمين تيك توك بنجاح. أرسل رابطك الآن!")
 
 @bot.message_handler(func=lambda message: True)
 def handle_message(message):
@@ -81,42 +107,40 @@ def handle_message(message):
     url = message.text
     url_lower = url.lower()
     
+    # التحقق من أن الرابط مدعوم
     if any(domain in url_lower for domain in ["tiktok.com", "instagram.com", "facebook.com", "fb.watch", "youtube.com", "youtu.be"]):
-        status_msg = bot.reply_to(message, "🚀 جاري التحميل والمعالجة الفورية بدون حظر...")
+        status_msg = bot.reply_to(message, "⏳ جاري فك التشفير وتخطي الحظر والتحميل الآن...")
+        filename = f"bypass_{message.chat.id}.mp4"
         
-        # --- أولاً: التعامل الذكي والصارم مع انستغرام كسر حظر 100% ---
-        if "instagram.com" in url_lower:
-            direct_video_url = get_instagram_direct_url(url)
-            if direct_video_url:
+        # --- أولاً: خط الدفاع السحابي لإنستغرام ويوتيوب ---
+        if any(x in url_lower for x in ["instagram.com", "youtube.com", "youtu.be"]):
+            success = download_via_advanced_api(url, filename)
+            if success and os.path.exists(filename):
                 try:
-                    # إرسال الفيديو مباشرة لتيليجرام عبر الرابط لتوفير سيرفر Render بالكامل
-                    bot.send_video(message.chat.id, direct_video_url, reply_to_message_id=message.message_id)
+                    with open(filename, 'rb') as video:
+                        bot.send_video(message.chat.id, video, reply_to_message_id=message.message_id)
+                    os.remove(filename)
                     bot.delete_message(message.chat.id, status_msg.message_id)
                     return
-                except:
-                    # خطة بديلة في حال فشل الإرسال المباشر بالرابط: نقوم بتحميله وإرساله كملف
-                    try:
-                        video_data = requests.get(direct_video_url, timeout=20).content
-                        filename = f"insta_{message.chat.id}.mp4"
-                        with open(filename, 'wb') as f:
-                            f.write(video_data)
-                        with open(filename, 'rb') as video_file:
-                            bot.send_video(message.chat.id, video_file, reply_to_message_id=message.message_id)
-                        if os.path.exists(filename): os.remove(filename)
-                        bot.delete_message(message.chat.id, status_msg.message_id)
-                        return
-                    except:
-                        if os.path.exists(filename): os.remove(filename)
+                except Exception:
+                    if os.path.exists(filename): os.remove(filename)
             
-            bot.edit_message_text("❌ عذراً، هذا المقطع محمي أو خاص بحساب صاحبه. تأكد أن الحساب عام (Public).", message.chat.id, status_msg.message_id)
-            return
-
-        # --- ثانياً: تيك توك وبقية المنصات بالنظام التقليدي المستقر ---
+        # --- ثانياً: خط الدفاع التقليدي المطور (محاكاة هاتف أندرويد لتيك توك والمنصات الأخرى كبديل) ---
         ydl_opts = {
             'format': 'b[ext=mp4]/best', 
             'outtmpl': f'video_{message.chat.id}_%(id)s.%(ext)s',
             'quiet': True,
             'no_warnings': True,
+            # الخدعة السحرية: إجبار السيرفر على طلب المقطع كأنه تطبيق أندرويد رسمي لمنع كشف السيرفر
+            'extractor_args': {
+                'youtube': {
+                    'player_client': ['android', 'ios'],
+                    'skip': ['webpage']
+                }
+            },
+            'http_headers': {
+                'User-Agent': 'Mozilla/5.0 (Android 14; Mobile; rv:128.0) Gecko/128.0 Firefox/128.0'
+            }
         }
         
         try:
@@ -127,13 +151,12 @@ def handle_message(message):
                 with open(dl_filename, 'rb') as video:
                     bot.send_video(message.chat.id, video, reply_to_message_id=message.message_id)
                     
-                if os.path.exists(dl_filename):
-                    os.remove(dl_filename)
+                if os.path.exists(dl_filename): os.remove(dl_filename)
                 bot.delete_message(message.chat.id, status_msg.message_id)
         except Exception:
-            bot.edit_message_text("❌ عذراً، فشل تحميل هذا المقطع. تأكد من صحة الرابط وعموميته.", message.chat.id, status_msg.message_id)
+            bot.edit_message_text("❌ عذراً، فشل النظام في جلب هذا المقطع بالذات. تأكد أن الحساب عام (Public) والطلب غير محمي.", message.chat.id, status_msg.message_id)
     else:
-        bot.reply_to(message, "⚠️ أرسل رابطاً صحيحاً ومدعوماً.")
+        bot.reply_to(message, "⚠️ من فضلك أرسل رابطاً صحيحاً ومدعوماً من (تيك توك، إنستغرام، يوتيوب).")
 
 if __name__ == "__main__":
     bot.infinity_polling()
