@@ -4,14 +4,15 @@ import http.server
 import socketserver
 import telebot
 import yt_dlp
+import requests
 
-# --- سيرفر وهمي ---
+# --- سيرفر وهمي لمنع البوت من النوم ---
 class DummyHTTPServer(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
         self.send_header("Content-type", "text/html; charset=utf-8")
         self.end_headers()
-        self.wfile.write("البوت يعمل ومستعد للتحميل!".encode('utf-8'))
+        self.wfile.write("البوت يعمل عبر السيرفرات الوسيطة!".encode('utf-8'))
 
 def run_dummy_server():
     PORT = int(os.environ.get("PORT", 8080))
@@ -20,7 +21,7 @@ def run_dummy_server():
 
 threading.Thread(target=run_dummy_server, daemon=True).start()
 
-# --- إعدادات البوت وقناة الاشتراك ---
+# --- إعدادات البوت والاشتراك الإجباري ---
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "8499856454:AAHB49UPTI7Q4sF0OyMr-GhBPOIVk9aBRRo") 
 CHANNELS = ["@iq_2a1"]
 
@@ -45,7 +46,25 @@ def send_welcome(message):
         bot.reply_to(message, "⚠️ عذراً عزيزي، يجب عليك الاشتراك في القناة أولاً لتتمكن من استخدام البوت!", reply_markup=markup)
         return
         
-    bot.reply_to(message, "👋 أهلاً بك! أرسل لي أي رابط وسأقوم بتحميله فوراً.")
+    bot.reply_to(message, "👋 أهلاً بك! لقد تم تفعيل سيرفرات التحميل السحابية لتخطي الحظر. أرسل أي رابط الآن!")
+
+# دالة للاتصال بالخوادم الوسيطة لتخطي حظر يوتيوب وانستغرام
+def get_direct_url(video_url):
+    headers = {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+    }
+    data = {"url": video_url}
+    try:
+        response = requests.post("https://api.cobalt.tools/api/json", json=data, headers=headers, timeout=15)
+        if response.status_code == 200:
+            res = response.json()
+            if 'url' in res:
+                return res['url']
+    except:
+        pass
+    return None
 
 @bot.message_handler(func=lambda message: True)
 def handle_message(message):
@@ -59,22 +78,31 @@ def handle_message(message):
     url = message.text
     url_lower = url.lower()
     
-    if any(domain in url_lower for domain in ["youtube.com", "youtu.be", "tiktok.com", "instagram.com", "facebook.com", "x.com", "twitter.com"]):
-        status_msg = bot.reply_to(message, "🚀 جاري معالجة الرابط والتحميل...")
+    if any(domain in url_lower for domain in ["youtube.com", "youtu.be", "tiktok.com", "instagram.com", "facebook.com", "fb.watch", "x.com", "twitter.com"]):
+        status_msg = bot.reply_to(message, "🚀 جاري التحميل عبر السيرفرات السحابية...")
         
-        # إعدادات التحميل المحدثة لتخطي حظر انستغرام ويوتيوب
+        # 1. محاولة التحميل عبر الخادم الوسيط (لتجنب حظر Render)
+        direct_url = get_direct_url(url)
+        
+        if direct_url:
+            try:
+                bot.send_video(message.chat.id, direct_url, reply_to_message_id=message.message_id)
+                bot.delete_message(message.chat.id, status_msg.message_id)
+                return
+            except:
+                pass # في حال فشل الإرسال، ننتقل للطريقة الثانية
+        
+        # 2. الطريقة البديلة (الاعتماد على الكوكيز الداخلي)
+        bot.edit_message_text("جاري المحاولة بالطريقة البديلة...", message.chat.id, status_msg.message_id)
         ydl_opts = {
             'format': 'b[ext=mp4]/best', 
             'outtmpl': f'video_{message.chat.id}_%(id)s.%(ext)s',
             'quiet': True,
             'no_warnings': True,
-            'geo_bypass': True, # محاولة تخطي الحظر الجغرافي
-            'nocheckcertificate': True,
         }
         
         current_dir = os.path.dirname(os.path.abspath(__file__))
         cookies_path = os.path.join(current_dir, 'cookies.txt')
-        
         if os.path.exists(cookies_path):
             ydl_opts['cookiefile'] = cookies_path
             
@@ -91,10 +119,8 @@ def handle_message(message):
                 if os.path.exists(filename):
                     os.remove(filename)
                 bot.delete_message(message.chat.id, status_msg.message_id)
-                
         except Exception as e:
-            print(f"Error: {str(e)}")
-            bot.edit_message_text("❌ عذراً، لم أتمكن من التحميل. قد يكون الفيديو خاصاً (Private)، أو أن المنصة قامت بتحديث نظام الحماية الخاص بها.", message.chat.id, status_msg.message_id)
+            bot.edit_message_text("❌ عذراً، لا تزال المنصة تحظر التحميل. قد يكون الحساب خاصاً (Private) أو محمياً بشدة.", message.chat.id, status_msg.message_id)
     else:
         bot.reply_to(message, "⚠️ أرسل رابطاً صحيحاً من المنصات المعروفة.")
 
