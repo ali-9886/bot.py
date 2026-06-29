@@ -28,7 +28,7 @@ threading.Thread(target=run_alive_server, daemon=True).start()
 # =====================================================================
 # ⚙️ إعدادات البوت والاشتراك
 # =====================================================================
-BOT_TOKEN = os.environ.get("BOT_TOKEN", "8930230995:AAHRG3VsmjFjK4Vf25Ct8LRaDnSSNvfNv2A") 
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "8499856454:AAHB49UPTI7Q4sF0OyMr-GhBPOIVk9aBRRo") 
 CHANNELS = ["@iq_2a1"]
 
 bot = telebot.TeleBot(BOT_TOKEN, threaded=True, num_threads=10)
