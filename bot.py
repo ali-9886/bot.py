@@ -109,7 +109,7 @@ def handle_download(message):
                     with open(filename, 'rb') as video:
                         bot.send_video(message.chat.id, video, reply_to_message_id=message.message_id, caption="تحميل موفق يا غالي! 🍿✨")
         except:
-            bot.edit_message_text("أعتذر منك يا غالي 💔، ما كدرت أحمل المقطع. تأكد أن الحساب عام وليس خاصاً.", message.chat.id, status_msg.message_id)
+            bot.edit_message_text("أعتذر منك يا غالي 💔, ما كدرت أحمل المقطع. تأكد أن الحساب عام وليس خاصاً.", message.chat.id, status_msg.message_id)
         finally:
             if os.path.exists(filename):
                 os.remove(filename) # مسح الفيديو فوراً لتنظيف السيرفر
@@ -126,7 +126,7 @@ if __name__ == "__main__":
         print("🔄 جاري تنظيف وإزالة أي تعليق قديم في التوكن...")
         bot.remove_webhook()
         print("🚀 البوت انطلق بنجاح دون التأثر بالرسائل المتراكمة!")
-        # تفعيل تجاهل الرسائل القديمة لمنع انفجار السيرفر عند التشغيل
-        bot.infinity_polling(skip_pending_updates=True)
+        # تم تصحيح الخاصية هنا لتكون متوافقة تماماً ومنع الانهيار
+        bot.infinity_polling(skip_pending=True)
     except Exception as e:
         print(f"❌ حدث خطأ غير متوقع: {e}")
